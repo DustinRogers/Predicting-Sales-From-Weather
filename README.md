@@ -1,16 +1,3 @@
----
-title: "Variable Reduction in R"
-author: "Dustin Rogers"
-date: "September 18, 2018"
-output:
-      html_document:
-        keep_md: true
----
-
-
-
-
-
 ### The following is a project that I worked on for a national wholesale plant distributer. The purpose of this project was to reduce the number of variables used to predict plant sales in Dallas. To do this, I used both Boruta analysis and Recursive Feature Elimination analysis to determine the most important data features. Next, I validated the analysis of these two variable reduction methods by testing multiple predictive models and comparing results.
 
 
