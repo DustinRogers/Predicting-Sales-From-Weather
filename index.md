@@ -1,7 +1,7 @@
 ---
 classes: wide
 title: " "
-excerpt: How to choose unbiased testing and control samples
+excerpt: Using machine learning to reduce variables and forecast sales
 header:
   overlay_image: /assets/images/Header.jpg  
 ---
