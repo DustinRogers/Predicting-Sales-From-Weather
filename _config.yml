@@ -4,7 +4,7 @@ classes: wide
 
 # Site Settings
 locale                   : "en-US"
-title                    : "Methods for Reducing a Large Number of Variables"
+title                    : "Variable Reduction Methods"
 title_separator          : "-"
 subtitle                 : # site tagline that appears below site title in masthead
 name                     : "Dustin Rogers"
