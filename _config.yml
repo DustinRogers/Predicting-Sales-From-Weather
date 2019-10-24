@@ -4,7 +4,7 @@ classes: wide
 
 # Site Settings
 locale                   : "en-US"
-title                    : "How to choose test and control samples"
+title                    : "Methods for Reducing a Large Number of Variables"
 title_separator          : "-"
 subtitle                 : # site tagline that appears below site title in masthead
 name                     : "Dustin Rogers"
@@ -110,7 +110,7 @@ author:
       # url: "https://facebook.com/"
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
-      url: "https://github.com/DustinRogers/"
+      url: "https://dustinrogers.github.io/"
     - label: "Linkedin"
       icon: "fab fa-fw fa-linkedin"
       url: "https://www.linkedin.com/in/rogersdustin/"
