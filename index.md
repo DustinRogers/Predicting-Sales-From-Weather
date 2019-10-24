@@ -6,309 +6,841 @@ header:
   overlay_image: /assets/images/Header.jpg  
 ---
 
-### Project Overview
+### The following is a project that I worked on for a national wholesale plant distributer. The purpose of this project was to reduce the number of variables used to predict plant sales in Dallas. To do this, I used both Boruta analysis and Recursive Feature Elimination analysis to determine the most important data features. Next, I validated the analysis of these two variable reduction methods by testing multiple predictive models and comparing results.
 
-#### The project below shows two different methods of picking sample groups for an A/B test. The company I am consulting with wants to know if sales will improve or decline if they remove a number of SKU's from the shelves of a test group of their stores. Initially, the company gave me a test group of 20 stores and asked me to find 20 controls stores that were similar in nature so that they could compared run their experiment and compare results. By comparing the average Sales and Gross Margins of the pre-chosen stores with the averages of the remaining 105 stores I could see that they were not a representative sample of the entire population. The following shows how I approached this problem of choosing unbiased samples.  
 
-##### 1. I used the R package _MatchIt_ to pick the 20 stores that had the most similar distribution across all covariates in the data set to the test stores covariates and then used t-tests to determine how close their means were.
-##### 2. I created a function in R that picks 20 test stores that are closest to the population's distribution across all covariates in the data set. This will allow the company to use 105 stores as a control group rather than only 20.
 
-### Data Wrangling
-##### First, I load the data and look at it's data structure.
+##### First I load the raw data file, check the structure of the data to determine if it is in the correct measurement scale, and finally check for missing data.
+
 
 ```r
-test_cntl <- read.csv("Test Control Stores.csv",stringsAsFactors=FALSE)
-str(test_cntl)
+setwd("C:\\Users\\e16582\\Documents\\Datalore Projects\\Weather Data\\")
+Weather_Data_Raw <- read.csv("Foliage_Dallas_Chicago v2.csv")
+str(Weather_Data_Raw)
 ```
 
 ```
-## 'data.frame':	125 obs. of  10 variables:
-##  $ Status                         : chr  "Control" "Control" "Control" "Control" ...
-##  $ StoreCode                      : int  1003 1113 1161 1629 1699 1855 1924 2224 2238 2261 ...
-##  $ CustomerMarket                 : chr  "FG" "FC" "FB" "FG" ...
-##  $ Sum.of.Customer.Sales..s       : num  142709 78336 144626 263185 106198 ...
-##  $ Sum.of.Customer.Gross.Margin..s: num  41576 19576 36501 83747 32660 ...
-##  $ Sum.of.Customer.S.T..          : num  0.71 0.72 0.73 0.76 0.82 0.87 0.73 0.75 0.74 0.74 ...
-##  $ Max.of.MEDIAN.HOME.VALUE       : chr  "231750" "193075" "206550" "231757" ...
-##  $ Max.of.AGG.HOME.VALUES         : chr  "75638586" "295962580" "112035186" "214320269" ...
-##  $ Max.of.INCOME.DENSITY          : chr  "20526370" "78821928" "28587143" "52452386" ...
-##  $ Max.of.MEDIAN.AGE              : chr  "32" "40" "28" "35" ...
+## 'data.frame':	2460 obs. of  42 variables:
+##  $ Date..Year.              : int  2015 2015 2015 2015 2015 2015 2015 2015 2015 2015 ...
+##  $ Date..Month.             : Factor w/ 12 levels "Apr","Aug","Dec",..: 5 5 5 5 5 5 5 5 5 5 ...
+##  $ WeekOfYear               : int  1 1 1 1 1 1 2 2 2 2 ...
+##  $ DayOfWeek                : Factor w/ 7 levels "Friday","Monday",..: 1 1 3 3 5 5 1 1 2 2 ...
+##  $ City                     : Factor w/ 2 levels "Chicago","Dallas": 1 2 1 2 1 2 1 2 1 2 ...
+##  $ Day                      : int  2 2 3 3 1 1 9 9 5 5 ...
+##  $ Date                     : Factor w/ 1230 levels "1/1/2015","1/1/2016",..: 45 45 89 89 1 1 121 121 105 105 ...
+##  $ HolidayText              : Factor w/ 15 levels "(blank)","Christmas Day",..: 1 1 1 1 11 11 1 1 1 1 ...
+##  $ POS.Sales..              : num  434 633 408 1285 328 ...
+##  $ Maximum.of.fog           : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.rain          : int  0 1 1 1 0 1 0 0 0 0 ...
+##  $ Maximum.of.snow          : int  0 0 1 0 0 0 1 0 1 0 ...
+##  $ Maximum.of.snow_fall     : int  0 0 0 0 0 0 0 0 1 0 ...
+##  $ Maximum.of.mtd_snow      : int  0 0 0 0 0 0 7 0 4 0 ...
+##  $ Maximum.of.since_jul_snow: int  2 0 3 0 2 0 10 0 7 0 ...
+##  $ Maximum.of.snow_depth    : int  0 0 0 0 0 0 5 0 2 0 ...
+##  $ Maximum.of.hail          : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.thunder       : int  0 1 0 1 0 0 0 0 0 0 ...
+##  $ Maximum.of.tornado       : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.mean_temp     : int  25 39 32 46 23 35 6 33 2 34 ...
+##  $ Maximum.of.mean_dewp     : int  18 38 30 37 10 33 -4 13 -4 19 ...
+##  $ Maximum.of.mean_pressure : int  30 30 29 29 30 30 30 30 30 30 ...
+##  $ Maximum.of.mean_wind_spd : int  5 6 6 9 15 4 17 11 10 9 ...
+##  $ Maximum.of.mean_wind_dir : int  184 5 59 267 244 26 284 21 254 139 ...
+##  $ Maximum.of.mean_visib    : int  10 4 3 10 10 4 8 10 6 10 ...
+##  $ Maximum.of.humid         : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.max_temp      : int  34 41 34 54 32 37 11 39 6 46 ...
+##  $ Maximum.of.min_temp      : int  15 37 29 38 14 33 0 27 -3 21 ...
+##  $ Maximum.of.max_humid     : int  84 97 100 100 68 97 76 63 87 74 ...
+##  $ Maximum.of.min_humid     : int  47 89 69 50 49 73 54 32 59 33 ...
+##  $ Maximum.of.max_dew_pt    : int  21 40 34 39 15 36 5 21 2 27 ...
+##  $ Maximum.of.min_dew_pt    : int  13 36 21 33 3 26 -10 6 -11 13 ...
+##  $ Maximum.of.max_pressure  : int  30 30 30 30 30 30 30 30 30 30 ...
+##  $ Maximum.of.min_pressure  : int  30 29 29 29 29 30 29 30 30 30 ...
+##  $ Maximum.of.max_wind_spd  : int  12 12 13 15 24 8 30 22 22 20 ...
+##  $ Maximum.of.min_wind_spd  : int  0 0 0 0 7 0 8 0 0 4 ...
+##  $ Maximum.of.max_vis       : int  10 10 10 10 10 10 10 10 10 10 ...
+##  $ Maximum.of.min_vis       : int  10 1 1 6 10 2 2 10 1 10 ...
+##  $ Maximum.of.gdegree       : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.cooling_days  : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Maximum.of.heating_days  : int  40 26 33 19 42 30 59 32 63 31 ...
+##  $ Maximum.of.precip        : int  0 0 0 0 0 1 0 0 0 0 ...
 ```
 
 ```r
-test_cntl <- test_cntl%>%
-  rename_all(.funs = funs(sub(c("*Sum.of.Customer."), "", names(test_cntl))))
-test_cntl <- test_cntl%>%
-  rename_all(.funs = funs(sub(c("*Max.of."), "", names(test_cntl))))
+colSums(sapply(Weather_Data_Raw,is.na))
 ```
-##### We can see that the naming conventions are too verbose so I will change those. Additionally, some of the columns that should have loaded as numerical variables actually loaded as character variables. This needs to be fixed in order to analyze the data.
+
+```
+##               Date..Year.              Date..Month. 
+##                         0                         0 
+##                WeekOfYear                 DayOfWeek 
+##                         0                         0 
+##                      City                       Day 
+##                         0                         0 
+##                      Date               HolidayText 
+##                         0                         0 
+##               POS.Sales..            Maximum.of.fog 
+##                         0                         0 
+##           Maximum.of.rain           Maximum.of.snow 
+##                         0                         0 
+##      Maximum.of.snow_fall       Maximum.of.mtd_snow 
+##                         0                         0 
+## Maximum.of.since_jul_snow     Maximum.of.snow_depth 
+##                         0                         0 
+##           Maximum.of.hail        Maximum.of.thunder 
+##                         0                         0 
+##        Maximum.of.tornado      Maximum.of.mean_temp 
+##                         0                         0 
+##      Maximum.of.mean_dewp  Maximum.of.mean_pressure 
+##                         0                         0 
+##  Maximum.of.mean_wind_spd  Maximum.of.mean_wind_dir 
+##                         0                         0 
+##     Maximum.of.mean_visib          Maximum.of.humid 
+##                         0                         0 
+##       Maximum.of.max_temp       Maximum.of.min_temp 
+##                         0                         0 
+##      Maximum.of.max_humid      Maximum.of.min_humid 
+##                         0                         0 
+##     Maximum.of.max_dew_pt     Maximum.of.min_dew_pt 
+##                         0                         0 
+##   Maximum.of.max_pressure   Maximum.of.min_pressure 
+##                         0                         0 
+##   Maximum.of.max_wind_spd   Maximum.of.min_wind_spd 
+##                         0                         0 
+##        Maximum.of.max_vis        Maximum.of.min_vis 
+##                         0                         0 
+##        Maximum.of.gdegree   Maximum.of.cooling_days 
+##                         0                         0 
+##   Maximum.of.heating_days         Maximum.of.precip 
+##                         0                         0
+```
+
+
+
+##### It looks like there are no missing values. However, there are a number of variables that are currently read as integers that should be changed to a factor variable for modeling purposes such as 'Year'. I would also like check to see if there are any binary variables that need to be changed to factor. I can do this by looking at the number of unique levels for each variable. For integer variables with only two levels, I will change those to binary factors. I also notice that I need to rename a number of variables to remove the 'Maximum of' prefix.
+
 
 ```r
-numeric_feats <-names(test_cntl[sapply(test_cntl, function(x) length(unique(x)))>12])
-test_cntl[numeric_feats] <- lapply(test_cntl[numeric_feats], as.numeric)
+Weather_Data_Raw <- Weather_Data_Raw%>%
+  rename_all(.funs = funs(sub("*Maximum.of.", "", names(Weather_Data_Raw))))
+colnames(Weather_Data_Raw)[colnames(Weather_Data_Raw)=="POS.Sales.."]<-"Sales"
+Weather_Data_Raw$Date..Year. <- as.factor(Weather_Data_Raw$Date..Year.)
+Weather_Data_Raw$WeekOfYear <- as.factor(Weather_Data_Raw$WeekOfYear)
+rapply(Weather_Data_Raw,function(x) length(unique(x)))
 ```
-##### Next,  I check to see if the data has any null values. I see that there are 6 rows that are all missing demographic data.
+
+```
+##    Date..Year.   Date..Month.     WeekOfYear      DayOfWeek           City 
+##              4             12             53              7              2 
+##            Day           Date    HolidayText          Sales            fog 
+##             31           1230             15           1598              2 
+##           rain           snow      snow_fall       mtd_snow since_jul_snow 
+##              2              2              9             22             40 
+##     snow_depth           hail        thunder        tornado      mean_temp 
+##             18              2              2              1             97 
+##      mean_dewp  mean_pressure  mean_wind_spd  mean_wind_dir     mean_visib 
+##             90              3             25            354             11 
+##          humid       max_temp       min_temp      max_humid      min_humid 
+##              2            105             96             59             84 
+##     max_dew_pt     min_dew_pt   max_pressure   min_pressure   max_wind_spd 
+##             88             92              3              3             37 
+##   min_wind_spd        max_vis        min_vis        gdegree   cooling_days 
+##             14             10             11             45             30 
+##   heating_days         precip 
+##             68              6
+```
+
+```r
+act_factors <- names(Weather_Data_Raw)[which(sapply(Weather_Data_Raw,function(x)length(unique(x))==2))]
+Weather_Data_Raw[act_factors]<- lapply(Weather_Data_Raw[act_factors],factor)
+```
+
+
+
+##### Currently the data set has data for both Dallas and Chicago. I want to look at Dallas first and check how sales vary over time.
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+
+
+
+##### I removed the Date and Day variables since they are redundant. The tornado variable only has one level across the data set so it will not be helpful when modeling.
+
+
+```r
+Dallas <- subset(Dallas, select = -c(Day,Date,tornado))
+```
+
+
+
+##### Next I want to take a look at some descriptive statistics for the numerical data within my data set to make sure it makes sense. Except for the 'pressure' variables, which have only 3 unique levels, the data looks normal. I don't think that the 'Snow' variables will be predictive since we are look at Dallas, which doesn't get snow very often as the data shows.
+
+```r
+Dal_num_vars <- names(Dallas)[which(sapply(Dallas,is.numeric))]
+Dal_num_df <- Dallas[Dal_num_vars]
+Dal_summary_stats_num <- data.frame(vars= colnames(Dal_num_df),
+                                    mean=rapply(Dal_num_df, function(x)round(mean(x,na.rm=T),3)),
+                                    stddev=rapply(Dal_num_df, function(x)round(sd(x,na.rm=T),3)),
+                                    unique=rapply(Dal_num_df, function(x)length(unique(x))),
+                                    skew=rapply(Dal_num_df, function(x)round(skewness(x,na.rm=T),3)),
+                                    nas=rapply(Dal_num_df, function(x)round(sum(is.na(x)),3)),stringsAsFactors=T)
+kable(Dal_summary_stats_num[2:ncol(Dal_summary_stats_num)])%>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
 <table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
  <thead>
   <tr>
    <th style="text-align:left;">   </th>
-   <th style="text-align:right;"> x </th>
+   <th style="text-align:right;"> mean </th>
+   <th style="text-align:right;"> stddev </th>
+   <th style="text-align:right;"> unique </th>
+   <th style="text-align:right;"> skew </th>
+   <th style="text-align:right;"> nas </th>
   </tr>
  </thead>
 <tbody>
   <tr>
-   <td style="text-align:left;"> Status </td>
+   <td style="text-align:left;"> Sales </td>
+   <td style="text-align:right;"> 1976.093 </td>
+   <td style="text-align:right;"> 1784.988 </td>
+   <td style="text-align:right;"> 1027 </td>
+   <td style="text-align:right;"> 2.830 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> StoreCode </td>
+   <td style="text-align:left;"> snow_fall </td>
+   <td style="text-align:right;"> 0.004 </td>
+   <td style="text-align:right;"> 0.085 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> 21.987 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> CustomerMarket </td>
+   <td style="text-align:left;"> mtd_snow </td>
+   <td style="text-align:right;"> 0.066 </td>
+   <td style="text-align:right;"> 0.434 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> 6.486 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Sales..s </td>
+   <td style="text-align:left;"> since_jul_snow </td>
+   <td style="text-align:right;"> 0.235 </td>
+   <td style="text-align:right;"> 1.045 </td>
+   <td style="text-align:right;"> 4 </td>
+   <td style="text-align:right;"> 4.281 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Gross.Margin..s </td>
+   <td style="text-align:left;"> snow_depth </td>
+   <td style="text-align:right;"> 0.003 </td>
+   <td style="text-align:right;"> 0.114 </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 34.986 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> S.T.. </td>
+   <td style="text-align:left;"> mean_temp </td>
+   <td style="text-align:right;"> 67.560 </td>
+   <td style="text-align:right;"> 15.858 </td>
+   <td style="text-align:right;"> 71 </td>
+   <td style="text-align:right;"> -0.615 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> MEDIAN.HOME.VALUE </td>
+   <td style="text-align:left;"> mean_dewp </td>
+   <td style="text-align:right;"> 52.123 </td>
+   <td style="text-align:right;"> 16.107 </td>
+   <td style="text-align:right;"> 72 </td>
+   <td style="text-align:right;"> -0.662 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> mean_pressure </td>
+   <td style="text-align:right;"> 29.378 </td>
+   <td style="text-align:right;"> 1.751 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> -15.337 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> mean_wind_spd </td>
+   <td style="text-align:right;"> 10.500 </td>
+   <td style="text-align:right;"> 4.069 </td>
+   <td style="text-align:right;"> 23 </td>
+   <td style="text-align:right;"> 0.564 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> mean_wind_dir </td>
+   <td style="text-align:right;"> 165.239 </td>
+   <td style="text-align:right;"> 94.475 </td>
+   <td style="text-align:right;"> 305 </td>
+   <td style="text-align:right;"> 0.260 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> mean_visib </td>
+   <td style="text-align:right;"> 9.401 </td>
+   <td style="text-align:right;"> 1.411 </td>
+   <td style="text-align:right;"> 11 </td>
+   <td style="text-align:right;"> -3.195 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_temp </td>
+   <td style="text-align:right;"> 77.436 </td>
+   <td style="text-align:right;"> 16.397 </td>
+   <td style="text-align:right;"> 76 </td>
+   <td style="text-align:right;"> -0.866 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> min_temp </td>
+   <td style="text-align:right;"> 57.209 </td>
+   <td style="text-align:right;"> 16.089 </td>
+   <td style="text-align:right;"> 72 </td>
+   <td style="text-align:right;"> -0.424 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_humid </td>
+   <td style="text-align:right;"> 81.541 </td>
+   <td style="text-align:right;"> 12.606 </td>
+   <td style="text-align:right;"> 57 </td>
+   <td style="text-align:right;"> -1.363 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> min_humid </td>
+   <td style="text-align:right;"> 42.037 </td>
+   <td style="text-align:right;"> 16.877 </td>
+   <td style="text-align:right;"> 83 </td>
+   <td style="text-align:right;"> 0.561 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_dew_pt </td>
+   <td style="text-align:right;"> 57.293 </td>
+   <td style="text-align:right;"> 15.198 </td>
+   <td style="text-align:right;"> 70 </td>
+   <td style="text-align:right;"> -0.894 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> min_dew_pt </td>
+   <td style="text-align:right;"> 46.354 </td>
+   <td style="text-align:right;"> 17.277 </td>
+   <td style="text-align:right;"> 74 </td>
+   <td style="text-align:right;"> -0.473 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_pressure </td>
+   <td style="text-align:right;"> 29.589 </td>
+   <td style="text-align:right;"> 1.753 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> -15.634 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> min_pressure </td>
+   <td style="text-align:right;"> 29.188 </td>
+   <td style="text-align:right;"> 1.727 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> -15.658 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_wind_spd </td>
+   <td style="text-align:right;"> 21.204 </td>
+   <td style="text-align:right;"> 6.835 </td>
+   <td style="text-align:right;"> 34 </td>
+   <td style="text-align:right;"> 0.618 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> min_wind_spd </td>
+   <td style="text-align:right;"> 3.644 </td>
+   <td style="text-align:right;"> 3.733 </td>
+   <td style="text-align:right;"> 14 </td>
+   <td style="text-align:right;"> 0.656 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> max_vis </td>
+   <td style="text-align:right;"> 9.954 </td>
+   <td style="text-align:right;"> 0.619 </td>
    <td style="text-align:right;"> 6 </td>
+   <td style="text-align:right;"> -14.949 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> AGG.HOME.VALUES </td>
-   <td style="text-align:right;"> 6 </td>
+   <td style="text-align:left;"> min_vis </td>
+   <td style="text-align:right;"> 7.573 </td>
+   <td style="text-align:right;"> 3.546 </td>
+   <td style="text-align:right;"> 11 </td>
+   <td style="text-align:right;"> -1.100 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> INCOME.DENSITY </td>
-   <td style="text-align:right;"> 6 </td>
+   <td style="text-align:left;"> gdegree </td>
+   <td style="text-align:right;"> 18.646 </td>
+   <td style="text-align:right;"> 13.249 </td>
+   <td style="text-align:right;"> 45 </td>
+   <td style="text-align:right;"> 0.030 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> MEDIAN.AGE </td>
+   <td style="text-align:left;"> cooling_days </td>
+   <td style="text-align:right;"> 7.928 </td>
+   <td style="text-align:right;"> 8.934 </td>
+   <td style="text-align:right;"> 30 </td>
+   <td style="text-align:right;"> 0.667 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> heating_days </td>
+   <td style="text-align:right;"> 5.158 </td>
+   <td style="text-align:right;"> 8.655 </td>
+   <td style="text-align:right;"> 41 </td>
+   <td style="text-align:right;"> 1.833 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> precip </td>
+   <td style="text-align:right;"> 0.111 </td>
+   <td style="text-align:right;"> 0.445 </td>
    <td style="text-align:right;"> 6 </td>
+   <td style="text-align:right;"> 5.246 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
 </tbody>
 </table>
-##### Since my data set is very small I can't afford to lose any data. Therefore, I have decided to impute the mean value for the rows null values . 
+
+
+
+##### Next I am going to take a look at the correlations between each numerical variable.There appears to be a cluster of 7 weather variables that are highly correlated. Heating days seems to be negatively correlated with those 7 variables.
+
 
 ```r
-for (x in numeric_feats) {   
-  mean_value <- mean(test_cntl[[x]],na.rm = TRUE)
-  test_cntl[[x]][is.na(test_cntl[[x]])] <- mean_value
-}
+Dal_Corrs <- cor(na.omit(Dal_num_df[]))
+Dal_Corr_df <- as.data.frame(Dal_Corrs)
+row_indic <- apply(Dal_Corrs, 1, function(x) sum(x > 0.2 | x < -0.2) > 1)
+Dal_Corrs <- Dal_Corrs[row_indic ,row_indic ]
+corrplot(Dal_Corrs,type = "upper", tl.pos = "td",
+         method = "circle", tl.cex = 0.5, tl.col = 'black',
+         order = "hclust", diag = FALSE)
 ```
 
-##### Next, I look at summary statistics for all my numeric data. I see that AGG.HOME.VALUES & INCOME.DENSITY are the total cost of all homes within a zip code. It doesn't make sense to use these variable since so much information is lost when aggregating to this level.
-
-<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
- <thead>
-  <tr>
-   <th style="text-align:left;">   </th>
-   <th style="text-align:right;"> Mean </th>
-   <th style="text-align:right;"> SD </th>
-   <th style="text-align:right;"> Unique </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> StoreCode </td>
-   <td style="text-align:right;"> 1702.67 </td>
-   <td style="text-align:right;"> 850.74 </td>
-   <td style="text-align:right;"> 125 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Sales..s </td>
-   <td style="text-align:right;"> 153231.10 </td>
-   <td style="text-align:right;"> 93056.67 </td>
-   <td style="text-align:right;"> 125 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Gross.Margin..s </td>
-   <td style="text-align:right;"> 44247.27 </td>
-   <td style="text-align:right;"> 32802.62 </td>
-   <td style="text-align:right;"> 125 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> S.T.. </td>
-   <td style="text-align:right;"> 0.78 </td>
-   <td style="text-align:right;"> 0.10 </td>
-   <td style="text-align:right;"> 36 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.HOME.VALUE </td>
-   <td style="text-align:right;"> 190360.81 </td>
-   <td style="text-align:right;"> 58192.50 </td>
-   <td style="text-align:right;"> 119 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> AGG.HOME.VALUES </td>
-   <td style="text-align:right;"> 110379693.59 </td>
-   <td style="text-align:right;"> 89655323.27 </td>
-   <td style="text-align:right;"> 120 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> INCOME.DENSITY </td>
-   <td style="text-align:right;"> 27636314.41 </td>
-   <td style="text-align:right;"> 19190972.73 </td>
-   <td style="text-align:right;"> 120 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.AGE </td>
-   <td style="text-align:right;"> 41.71 </td>
-   <td style="text-align:right;"> 6.19 </td>
-   <td style="text-align:right;"> 29 </td>
-  </tr>
-</tbody>
-</table>
-
-##### Now that I have a clean set of data, I want to see how the means of pre-chosen test group compares with the rest of the data set. Based on the difference in the average sales and gross margin between the two cohorts, it appears that the pre-chosen test group is not a good representation of the population.
-
-<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
- <thead>
-  <tr>
-   <th style="text-align:left;"> Status_2 </th>
-   <th style="text-align:right;"> StoreCode </th>
-   <th style="text-align:right;"> Sales..s </th>
-   <th style="text-align:right;"> Gross.Margin..s </th>
-   <th style="text-align:right;"> S.T.. </th>
-   <th style="text-align:right;"> MEDIAN.HOME.VALUE </th>
-   <th style="text-align:right;"> MEDIAN.AGE </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Control </td>
-   <td style="text-align:right;"> 1702.248 </td>
-   <td style="text-align:right;"> 149798.8 </td>
-   <td style="text-align:right;"> 43174.90 </td>
-   <td style="text-align:right;"> 0.7713333 </td>
-   <td style="text-align:right;"> 189067.9 </td>
-   <td style="text-align:right;"> 41.37687 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Test </td>
-   <td style="text-align:right;"> 1704.900 </td>
-   <td style="text-align:right;"> 171250.5 </td>
-   <td style="text-align:right;"> 49877.23 </td>
-   <td style="text-align:right;"> 0.8150000 </td>
-   <td style="text-align:right;"> 197148.4 </td>
-   <td style="text-align:right;"> 43.48571 </td>
-  </tr>
-</tbody>
-</table>
-
-#### In order to test my hypothesis I ran a t-test for each individual variables to determine if the control and test means are equal. The variable S.T.., which represents Sales Through, is not significant at the .05 level. However, I cannot reject my null hypothesis that Sales and Gross Margin are equal between the control and test sets.
-
-<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
- <thead>
-  <tr>
-   <th style="text-align:left;"> x </th>
-   <th style="text-align:right;"> t_value </th>
-   <th style="text-align:right;"> p_value </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Sales..s </td>
-   <td style="text-align:right;"> -0.8351172 </td>
-   <td style="text-align:right;"> 0.4117864 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Gross.Margin..s </td>
-   <td style="text-align:right;"> -0.7488839 </td>
-   <td style="text-align:right;"> 0.4610538 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> S.T.. </td>
-   <td style="text-align:right;"> -2.1477137 </td>
-   <td style="text-align:right;"> 0.0391601 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.HOME.VALUE </td>
-   <td style="text-align:right;"> -0.4229528 </td>
-   <td style="text-align:right;"> 0.6764213 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.AGE </td>
-   <td style="text-align:right;"> -1.2899117 </td>
-   <td style="text-align:right;"> 0.2088940 </td>
-  </tr>
-</tbody>
-</table>
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
 
-##### I would still like to see if I can create a better samples for running this experiment. Therefore, I created a function that randomly samples 20 test stores and then compares their means to the means of the remaining 105 stores using T-Tests until all the T-Tests have P-Values of 80% of higher. 
+
+##### Next I want to visualize how these varibles vary with Sales.
 
 ```r
-random.sample <- function(x) {
-  success <- FALSE
-  while (!success) {
-    
-    test <- sample_n(test_cntl,20)
-    control <- setdiff(test_cntl,test)
-    
-    cov <- c('Sales..s','Gross.Margin..s','S.T..','MEDIAN.HOME.VALUE','MEDIAN.AGE')
-    
-    ttest <- ldply(cov,function(x) {
-      p_val = t.test(x=test[,x], y=control[,x])$p.value
-      return(data.frame(x=x,p_value=p_val))
-    })
-  
-    success <- all(ttest$p_value>.8)
+doPlots <- function(data_in, fun, ii, ncol=3) {
+  pp <- list()
+  for (i in ii) {
+    p <- fun(data_in=data_in, i=i)
+    pp <- c(pp, list(p))
   }
-  test_stores <- test$StoreCode
+  do.call("grid.arrange", c(pp, ncol=ncol))
+}
+plotScatter <- function(data_in, i) {
+  data <- data.frame(x=data_in[[i]])
+  p <- ggplot(data=data, aes(x=x,y=Dallas$Sales)) + geom_point() + xlab(colnames(data_in)[i]) + theme_light() + 
+    theme(axis.text.x = element_text(angle = 90, hjust =1),legend.position="none")
+  return (p)
 }
 
-test_stores<-random.sample(test_cntl)
-
-test_cntl<-test_cntl%>%
-  mutate(Status_2=case_when(StoreCode %in% test_stores ~ 1,
-                            TRUE ~ 0
-                            ))
+doPlots(Dallas, fun=plotScatter, ii=c(11:14), ncol=2)
 ```
 
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
-#### The first tables below shows the means between the newly selected test stores vs. the remain 105 stores. The second table shows the T-Tests of the test and control samples which validate that each of the covariates' means are similar. 
+```r
+doPlots(Dallas, fun=plotScatter, ii=c(17:22), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-7-2.png)<!-- -->
+
+```r
+doPlots(Dallas, fun=plotScatter, ii=c(23:28), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-7-3.png)<!-- -->
+
+```r
+doPlots(Dallas, fun=plotScatter, ii=c(29:34), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-7-4.png)<!-- -->
+
+```r
+doPlots(Dallas, fun=plotScatter, ii=c(35:39), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-7-5.png)<!-- -->
+
+
+
+##### Next, I want to create a summary of descriptive statistics for the categorical variables and visualize how they vary with sales.
+
+
+```r
+Dal_fact_vars <- names(Dallas)[which(sapply(Dallas,is.factor))]
+Dal_fact_df <- Dallas[Dal_fact_vars]
+
+Dal_summary_stats_fact <- data.frame(vars= colnames(Dal_fact_df),
+                                     unique=rapply(Dal_fact_df, function(x)length(unique(x))),
+                                     nas=rapply(Dal_fact_df, function(x)round(sum(is.na(x)),3)),
+                                     stringsAsFactors=T)
+
+kable(Dal_summary_stats_fact[2:ncol(Dal_summary_stats_fact)])%>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+```
 
 <table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
  <thead>
   <tr>
-   <th style="text-align:left;"> Status_3 </th>
-   <th style="text-align:right;"> StoreCode </th>
-   <th style="text-align:right;"> Sales..s </th>
-   <th style="text-align:right;"> Gross.Margin..s </th>
-   <th style="text-align:right;"> S.T.. </th>
-   <th style="text-align:right;"> MEDIAN.HOME.VALUE </th>
-   <th style="text-align:right;"> MEDIAN.AGE </th>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> unique </th>
+   <th style="text-align:right;"> nas </th>
   </tr>
  </thead>
 <tbody>
   <tr>
-   <td style="text-align:left;"> Control </td>
-   <td style="text-align:right;"> 1662.076 </td>
-   <td style="text-align:right;"> 153691.8 </td>
-   <td style="text-align:right;"> 44405.92 </td>
-   <td style="text-align:right;"> 0.7795238 </td>
-   <td style="text-align:right;"> 190673.3 </td>
-   <td style="text-align:right;"> 41.67211 </td>
+   <td style="text-align:left;"> Date..Year. </td>
+   <td style="text-align:right;"> 4 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Test </td>
-   <td style="text-align:right;"> 1915.800 </td>
-   <td style="text-align:right;"> 150812.4 </td>
-   <td style="text-align:right;"> 43414.37 </td>
-   <td style="text-align:right;"> 0.7720000 </td>
-   <td style="text-align:right;"> 188720.0 </td>
-   <td style="text-align:right;"> 41.93571 </td>
+   <td style="text-align:left;"> Date..Month. </td>
+   <td style="text-align:right;"> 12 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> WeekOfYear </td>
+   <td style="text-align:right;"> 53 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> DayOfWeek </td>
+   <td style="text-align:right;"> 7 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> City </td>
+   <td style="text-align:right;"> 1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HolidayText </td>
+   <td style="text-align:right;"> 15 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> fog </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rain </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> snow </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> hail </td>
+   <td style="text-align:right;"> 1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> thunder </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> humid </td>
+   <td style="text-align:right;"> 1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>
+
+```r
+plotBox <- function(data_in, i) {
+  data <- data.frame(x=data_in[[i]])
+  p <- ggplot(data=data, aes(x=factor(x),y=Dallas$Sales, fill=factor(x))) + geom_boxplot() + xlab(colnames(data_in)[i]) + theme_light() + 
+    theme(axis.text.x = element_text(angle = 90, hjust =1),legend.position="none")
+  return (p)
+}
+
+doPlots(Dallas, fun=plotBox, ii=c(1:4), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
+```r
+doPlots(Dallas, fun=plotBox, ii=c(8:10), ncol=2)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-8-2.png)<!-- -->
+
+```r
+doPlots(Dallas, fun=plotBox, ii=c(6), ncol=1)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-8-3.png)<!-- -->
+
+
+##### I have to decided to drop variables that do not have any information for modeling purposes i.e. they don't vary across the dataset. I have also dropped rows that have no sales since these represent holiday when stores are closed.
+
+```r
+Dallas <- subset(Dallas, select = -c(City,humid,mean_pressure,min_pressure,max_pressure,precip))
+#Drop Holidays with Zero Sales
+Dallas <- Dallas%>%
+  filter(Sales>0)
+```
+
+
+## Modeling Section
+##### Here I will use Boruta and RFE algorithms to rank my independant variables in terms of importantance. I will later test the predictive powers of the variables chosen by each of these techniques against the full set of data and each other using Lasso Regression and Random Forest Models. 
+
+### Boruta Analysis 
+##### This type of algorithm is quite useful for determining variable importance. This algorithm shuffles the predictors' values and joins them back with the original predictors. Then it builds random forests on the merged dataset. Next, a comparison of original variables with the randomised variables is made to measure variable importance. Only variables having higher importance than that of the randomised variables are considered important. I use a great package in R called 'Boruta' that allows the user to rank the variables in terms of importance.
+
+##### Based the results below, it appears that the Date variables Year,Week, Month, and Day are 4 of the 6 highest ranked variables. Since Week of Year and Month are redundant, I only want to use one. I will test them against each other later to see which helps predict sales better. Heating days, Gdegree, and Since July Snow are the three highest ranked weather variables.
+
+
+```r
+library(Boruta)
+```
+
+```
+## Loading required package: ranger
+```
+
+```r
+TARGET.VAR <- "Sales"
+candidate.features <- setdiff(names(Dallas),c(TARGET.VAR))
+# response variables
+Dallas.boruta.df <- Dallas[candidate.features]
+response <- Dallas$Sales
+set.seed(13)
+per.bor.results <- Boruta(Dallas.boruta.df, response,
+                          maxRuns = 101,
+                          doTrace = 0)
+per.bor.results
+```
+
+Boruta performed 100 iterations in 2.379274 mins.
+ 25 attributes confirmed important: cooling_days, Date..Month.,
+Date..Year., DayOfWeek, gdegree and 20 more;
+ 4 attributes confirmed unimportant: fog, hail, snow_depth,
+snow_fall;
+ 3 tentative attributes left: max_vis, min_wind_spd, snow;
+
+```r
+plot(per.bor.results, xlab = "", xaxt = "n")
+k <-lapply(1:ncol(per.bor.results$ImpHistory),function(i)
+  per.bor.results$ImpHistory[is.finite(per.bor.results$ImpHistory[,i]),i])
+names(k) <- colnames(per.bor.results$ImpHistory)
+Labels <- sort(sapply(k,median))
+axis(side = 1,las=2,labels = names(Labels),
+     at = 1:ncol(per.bor.results$ImpHistory), cex.axis = 0.7)
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+
+
+### RFE Analysis
+
+##### I want to use RFE, or Recursive Feature Elimination, to see what its algorithm ranks as the most important features. There appears to be a good bit of overlap with the Boruta model which is good news. This algorithm ranked WeekOfYear, DayOfWeek, since_jul_snow, max_temp, gdegree as the top 5 most important variables.
+
+
+```r
+Dal_Model_df <- Dallas%>%
+  select(-c(Date..Month.))
+
+set.seed(100)
+Y <- Dal_Model_df$Sales
+drop_sales <- c("Sales") 
+X_train <- Dal_Model_df[,!(names(Dal_Model_df) %in% drop_sales)]
+
+##### Use Recursive Feature elimination function in Caret to select best features
+control <- rfeControl(functions = rfFuncs,
+                      method = "repeatedcv",
+                      repeats = 3,
+                      verbose = FALSE)                                
+Dal_rfe <- rfe(x=X_train,y=Y,
+               rfeControl = control)
+
+kable(round(Dal_rfe$result,2))%>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:right;"> Variables </th>
+   <th style="text-align:right;"> RMSE </th>
+   <th style="text-align:right;"> Rsquared </th>
+   <th style="text-align:right;"> MAE </th>
+   <th style="text-align:right;"> RMSESD </th>
+   <th style="text-align:right;"> RsquaredSD </th>
+   <th style="text-align:right;"> MAESD </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:right;"> 4 </td>
+   <td style="text-align:right;"> 943.01 </td>
+   <td style="text-align:right;"> 0.78 </td>
+   <td style="text-align:right;"> 576.42 </td>
+   <td style="text-align:right;"> 191.56 </td>
+   <td style="text-align:right;"> 0.05 </td>
+   <td style="text-align:right;"> 54.72 </td>
+  </tr>
+  <tr>
+   <td style="text-align:right;"> 8 </td>
+   <td style="text-align:right;"> 866.71 </td>
+   <td style="text-align:right;"> 0.80 </td>
+   <td style="text-align:right;"> 524.58 </td>
+   <td style="text-align:right;"> 185.80 </td>
+   <td style="text-align:right;"> 0.05 </td>
+   <td style="text-align:right;"> 55.70 </td>
+  </tr>
+  <tr>
+   <td style="text-align:right;"> 16 </td>
+   <td style="text-align:right;"> 804.85 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 481.62 </td>
+   <td style="text-align:right;"> 186.66 </td>
+   <td style="text-align:right;"> 0.04 </td>
+   <td style="text-align:right;"> 48.24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:right;"> 31 </td>
+   <td style="text-align:right;"> 793.60 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 475.42 </td>
+   <td style="text-align:right;"> 187.47 </td>
+   <td style="text-align:right;"> 0.04 </td>
+   <td style="text-align:right;"> 50.31 </td>
+  </tr>
+</tbody>
+</table>
+
+```r
+varImp(Dal_rfe) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  arrange(Overall) %>% 
+  mutate(rowname = forcats::fct_inorder(rowname)) %>%
+  ggplot() +
+    geom_col(aes(x = rowname, y = Overall)) +
+    ylab("Variable Importance")+
+    coord_flip()+
+    theme(axis.title.y=element_blank())
+```
+
+![](Dallas_Markdown_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+
+
+##### For the next steps I plan to run 2 types of models (Lasso, Random Forest) for each of the following 3 scenarios to determine which set of variables best predicts Sales.
+1) All independent variables
+2) The top 6 variables from the Boruta analysis
+3) The top 6 variables from the RFE analysis
+
+##### Based on the results below, the Random Forest model outperformed the Lasso Regression model significantly with a mean R^2 of 82% vs. 71%.
+
+
+```r
+Dal_Model_df <- Dallas%>%
+  select(-c(Date..Month.))
+
+Dal_factor_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.factor))]
+Dal_dummies <- dummyVars(~.,Dal_Model_df[Dal_factor_vars])
+Dal_1_hot <- predict(Dal_dummies,Dal_Model_df[Dal_factor_vars])
+
+Dal_numeric_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.numeric))]
+Dal_num_df <- Dal_Model_df[Dal_numeric_vars]
+Dal_Model_df1 <- cbind(Dal_num_df,Dal_1_hot)
+Y_lasso <- Dal_Model_df1$Sales
+X_train_lasso <- Dal_Model_df1[,!(names(Dal_Model_df1) %in% drop_sales)]
+
+
+CARET.TRAIN.CTRL <- trainControl(method="repeatedcv",
+                                 number=5,
+                                 repeats=5,
+                                 verboseIter=FALSE)
+##### Lasso #####
+Dal_lasso_1 <- train(x=X_train_lasso,y=Y_lasso,
+                     method="glmnet",
+                     metric="RMSE",
+                     maximize=FALSE,
+                     trControl=CARET.TRAIN.CTRL,
+                     tuneGrid=expand.grid(alpha=1,lambda=seq(0, 100, by = 0.1)))
+
+
+##### Random Forest #####
+tg <- data.frame(mtry= seq(2,30, by=5))
+Dal_rf_1 <- train(x=X_train,y=Y,
+                  method="rf",
+                  metric="RMSE",
+                  maximize=FALSE,
+                  trControl=CARET.TRAIN.CTRL,
+                  tuneGrid = tg)
+
+
+##### Comparing Models #####
+model_list <- list(lasso1=Dal_lasso_1,rf1=Dal_rf_1)
+res<-resamples(model_list)
+
+res_table <-as.data.frame(summary(res)$statistics)
+```
+
+
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> RMSE.Min. </th>
+   <th style="text-align:right;"> RMSE.1st.Qu. </th>
+   <th style="text-align:right;"> RMSE.Median </th>
+   <th style="text-align:right;"> RMSE.Mean </th>
+   <th style="text-align:right;"> RMSE.3rd.Qu. </th>
+   <th style="text-align:right;"> RMSE.Max. </th>
+   <th style="text-align:right;"> RMSE.NA.s </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> lasso1 </td>
+   <td style="text-align:right;"> 827.04 </td>
+   <td style="text-align:right;"> 881.64 </td>
+   <td style="text-align:right;"> 930.87 </td>
+   <td style="text-align:right;"> 957.34 </td>
+   <td style="text-align:right;"> 1021.80 </td>
+   <td style="text-align:right;"> 1196.92 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf1 </td>
+   <td style="text-align:right;"> 598.58 </td>
+   <td style="text-align:right;"> 661.04 </td>
+   <td style="text-align:right;"> 732.47 </td>
+   <td style="text-align:right;"> 783.25 </td>
+   <td style="text-align:right;"> 834.22 </td>
+   <td style="text-align:right;"> 1195.26 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
 </tbody>
 </table>
@@ -316,199 +848,375 @@ test_cntl<-test_cntl%>%
 <table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
  <thead>
   <tr>
-   <th style="text-align:left;"> x </th>
-   <th style="text-align:right;"> t_value </th>
-   <th style="text-align:right;"> p_value </th>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> Rsquared.Min. </th>
+   <th style="text-align:right;"> Rsquared.1st.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Median </th>
+   <th style="text-align:right;"> Rsquared.Mean </th>
+   <th style="text-align:right;"> Rsquared.3rd.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Max. </th>
+   <th style="text-align:right;"> Rsquared.NA.s </th>
   </tr>
  </thead>
 <tbody>
   <tr>
-   <td style="text-align:left;"> Sales..s </td>
-   <td style="text-align:right;"> 0.1219170 </td>
-   <td style="text-align:right;"> 0.9039041 </td>
+   <td style="text-align:left;"> lasso1 </td>
+   <td style="text-align:right;"> 0.60 </td>
+   <td style="text-align:right;"> 0.69 </td>
+   <td style="text-align:right;"> 0.73 </td>
+   <td style="text-align:right;"> 0.71 </td>
+   <td style="text-align:right;"> 0.75 </td>
+   <td style="text-align:right;"> 0.77 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Gross.Margin..s </td>
-   <td style="text-align:right;"> 0.1260534 </td>
-   <td style="text-align:right;"> 0.9006142 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> S.T.. </td>
-   <td style="text-align:right;"> 0.2449336 </td>
-   <td style="text-align:right;"> 0.8086790 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.HOME.VALUE </td>
-   <td style="text-align:right;"> 0.1384468 </td>
-   <td style="text-align:right;"> 0.8909148 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.AGE </td>
-   <td style="text-align:right;"> -0.2042134 </td>
-   <td style="text-align:right;"> 0.8394865 </td>
+   <td style="text-align:left;"> rf1 </td>
+   <td style="text-align:right;"> 0.72 </td>
+   <td style="text-align:right;"> 0.81 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.85 </td>
+   <td style="text-align:right;"> 0.87 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
 </tbody>
 </table>
 
-#### I still have not selected 20 control stores that best match the distribution of the pre-chosen test stores. Below are the results from the R package 'MatchIt'.
 
+##### The results below show how the Lasso vs. Random Forest performed with the top 9 variables from the Boruta analysis. Based on theses results, the Random Forest model outperformed the Lasso Regression model significantly with a mean R^2 of 82% vs. 71%.
+
+
+```r
+##### Use Variables from Boruta model to build a models
+Dal_Model_df <- Dallas%>%
+  select(c(Sales,WeekOfYear,since_jul_snow, Date..Year., heating_days, DayOfWeek,HolidayText,mean_temp,min_humid,max_dew_pt))
+
+Dal_factor_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.factor))]
+Dal_dummies <- dummyVars(~.,Dal_Model_df[Dal_factor_vars])
+Dal_1_hot <- predict(Dal_dummies,Dal_Model_df[Dal_factor_vars])
+
+Dal_numeric_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.numeric))]
+Dal_num_df <- Dal_Model_df[Dal_numeric_vars]
+Dal_Model_df1 <- cbind(Dal_num_df,Dal_1_hot)
+
+Y <- Dal_Model_df$Sales
+Y_lasso <- Dal_Model_df1$Sales
+drop_sales <- c("Sales") 
+X_train <- Dal_Model_df[,!(names(Dal_Model_df) %in% drop_sales)]
+X_train_lasso <- Dal_Model_df1[,!(names(Dal_Model_df1) %in% drop_sales)]
+
+set.seed(100)
+CARET.TRAIN.CTRL <- trainControl(method="repeatedcv",
+                                 number=5,
+                                 repeats=5,
+                                 verboseIter=FALSE)
+##### Lasso #####
+Dal_lasso_2 <- train(x=X_train_lasso,y=Y_lasso,
+                     method="glmnet",
+                     metric="RMSE",
+                     maximize=FALSE,
+                     trControl=CARET.TRAIN.CTRL,
+                     tuneGrid=expand.grid(alpha=1,lambda=seq(0, 100, by = 0.1)))
+
+##### Random Forest #####
+tg <- data.frame(mtry= seq(2,10, by=2))
+Dal_rf_2 <- train(x=X_train,y=Y,
+                  method="rf",
+                  metric="RMSE",
+                  maximize=FALSE,
+                  importance = TRUE,
+                  trControl=CARET.TRAIN.CTRL,
+                  tuneGrid = tg)
+
+
+##### Comparing new model with Boruta features 
+model_list2 <- list(lasso2=Dal_lasso_2,rf2=Dal_rf_2)
+res2<-resamples(model_list2)
+res2_table <-as.data.frame(summary(res2)$statistics)
 ```
-## 
-## Call:
-## matchit(formula = Status_2 ~ CustomerMarket + Sales..s + Gross.Margin..s + 
-##     S.T.. + MEDIAN.HOME.VALUE + MEDIAN.AGE, data = test_cntl, 
-##     method = "nearest", ratio = 2)
-## 
-## Summary of balance for all data:
-##                   Means Treated Means Control SD Control  Mean Diff
-## distance                 0.2860        0.1360     0.1118     0.1500
-## CustomerMarketEB         0.0500        0.0857     0.2813    -0.0357
-## CustomerMarketEF         0.0500        0.0095     0.0976     0.0405
-## CustomerMarketFA         0.1000        0.0857     0.2813     0.0143
-## CustomerMarketFB         0.1000        0.1905     0.3946    -0.0905
-## CustomerMarketFC         0.1000        0.0857     0.2813     0.0143
-## CustomerMarketFD         0.1000        0.0762     0.2666     0.0238
-## CustomerMarketFE         0.0500        0.0952     0.2950    -0.0452
-## CustomerMarketFF         0.0000        0.0190     0.1373    -0.0190
-## CustomerMarketFG         0.1000        0.0571     0.2332     0.0429
-## CustomerMarketFH         0.0500        0.0381     0.1923     0.0119
-## CustomerMarketFJ         0.0500        0.0667     0.2506    -0.0167
-## CustomerMarketFL         0.2500        0.1905     0.3946     0.0595
-## Sales..s            171250.4505   149798.8459 90123.6497 21451.6046
-## Gross.Margin..s      49877.2270    43174.8953 31913.2462  6702.3317
-## S.T..                    0.8150        0.7713     0.1041     0.0437
-## MEDIAN.HOME.VALUE   197148.4403   189067.9241 52825.0948  8080.5162
-## MEDIAN.AGE              43.4857       41.3769     6.0333     2.1088
-##                      eQQ Med   eQQ Mean    eQQ Max
-## distance              0.1556     0.1431     0.2759
-## CustomerMarketEB      0.0000     0.0500     1.0000
-## CustomerMarketEF      0.0000     0.0000     0.0000
-## CustomerMarketFA      0.0000     0.0000     0.0000
-## CustomerMarketFB      0.0000     0.1000     1.0000
-## CustomerMarketFC      0.0000     0.0000     0.0000
-## CustomerMarketFD      0.0000     0.0000     0.0000
-## CustomerMarketFE      0.0000     0.0500     1.0000
-## CustomerMarketFF      0.0000     0.0500     1.0000
-## CustomerMarketFG      0.0000     0.0500     1.0000
-## CustomerMarketFH      0.0000     0.0000     0.0000
-## CustomerMarketFJ      0.0000     0.0500     1.0000
-## CustomerMarketFL      0.0000     0.0500     1.0000
-## Sales..s          18931.1800 18052.0215 36079.5100
-## Gross.Margin..s    6411.1600  6434.5615 14326.7000
-## S.T..                 0.0400     0.0560     0.3400
-## MEDIAN.HOME.VALUE  5972.5000 11220.1000 82254.0000
-## MEDIAN.AGE            2.0000     2.5357     9.0000
-## 
-## 
-## Summary of balance for matched data:
-##                   Means Treated Means Control SD Control Mean Diff
-## distance                 0.2860        0.2302     0.1236    0.0557
-## CustomerMarketEB         0.0500        0.0500     0.2207    0.0000
-## CustomerMarketEF         0.0500        0.0250     0.1581    0.0250
-## CustomerMarketFA         0.1000        0.1250     0.3349   -0.0250
-## CustomerMarketFB         0.1000        0.1500     0.3616   -0.0500
-## CustomerMarketFC         0.1000        0.0750     0.2667    0.0250
-## CustomerMarketFD         0.1000        0.1000     0.3038    0.0000
-## CustomerMarketFE         0.0500        0.0250     0.1581    0.0250
-## CustomerMarketFF         0.0000        0.0000     0.0000    0.0000
-## CustomerMarketFG         0.1000        0.0750     0.2667    0.0250
-## CustomerMarketFH         0.0500        0.0500     0.2207    0.0000
-## CustomerMarketFJ         0.0500        0.0750     0.2667   -0.0250
-## CustomerMarketFL         0.2500        0.2500     0.4385    0.0000
-## Sales..s            171250.4505   164772.2065 88674.1526 6478.2440
-## Gross.Margin..s      49877.2270    47697.1095 31244.1945 2180.1175
-## S.T..                    0.8150        0.8015     0.0880    0.0135
-## MEDIAN.HOME.VALUE   197148.4403   191428.0702 56350.6575 5720.3702
-## MEDIAN.AGE              43.4857       42.7429     6.2676    0.7429
-##                     eQQ Med   eQQ Mean     eQQ Max
-## distance             0.0544     0.0564      0.1748
-## CustomerMarketEB     0.0000     0.0000      0.0000
-## CustomerMarketEF     0.0000     0.0000      0.0000
-## CustomerMarketFA     0.0000     0.0000      0.0000
-## CustomerMarketFB     0.0000     0.0500      1.0000
-## CustomerMarketFC     0.0000     0.0500      1.0000
-## CustomerMarketFD     0.0000     0.0000      0.0000
-## CustomerMarketFE     0.0000     0.0000      0.0000
-## CustomerMarketFF     0.0000     0.0000      0.0000
-## CustomerMarketFG     0.0000     0.0500      1.0000
-## CustomerMarketFH     0.0000     0.0000      0.0000
-## CustomerMarketFJ     0.0000     0.0000      0.0000
-## CustomerMarketFL     0.0000     0.0000      0.0000
-## Sales..s          8723.1700 14703.4650  98647.7200
-## Gross.Margin..s   2544.2100  4814.9670  37766.2800
-## S.T..                0.0200     0.0225      0.1100
-## MEDIAN.HOME.VALUE 4966.0000 12802.9500 117390.0000
-## MEDIAN.AGE           1.0000     1.5500      6.0000
-## 
-## Percent Balance Improvement:
-##                   Mean Diff. eQQ Med eQQ Mean   eQQ Max
-## distance             62.8430 65.0060  60.6024   36.6645
-## CustomerMarketEB    100.0000  0.0000 100.0000  100.0000
-## CustomerMarketEF     38.2353  0.0000   0.0000    0.0000
-## CustomerMarketFA    -75.0000  0.0000   0.0000    0.0000
-## CustomerMarketFB     44.7368  0.0000  50.0000    0.0000
-## CustomerMarketFC    -75.0000  0.0000     -Inf      -Inf
-## CustomerMarketFD    100.0000  0.0000   0.0000    0.0000
-## CustomerMarketFE     44.7368  0.0000 100.0000  100.0000
-## CustomerMarketFF    100.0000  0.0000 100.0000  100.0000
-## CustomerMarketFG     41.6667  0.0000   0.0000    0.0000
-## CustomerMarketFH    100.0000  0.0000   0.0000    0.0000
-## CustomerMarketFJ    -50.0000  0.0000 100.0000  100.0000
-## CustomerMarketFL    100.0000  0.0000 100.0000  100.0000
-## Sales..s             69.8007 53.9217  18.5495 -173.4176
-## Gross.Margin..s      67.4723 60.3159  25.1702 -163.6077
-## S.T..                69.0840 50.0000  59.8214   67.6471
-## MEDIAN.HOME.VALUE    29.2079 16.8522 -14.1073  -42.7165
-## MEDIAN.AGE           64.7742 50.0000  38.8732   33.3333
-## 
-## Sample sizes:
-##           Control Treated
-## All           105      20
-## Matched        40      20
-## Unmatched      65       0
-## Discarded       0       0
-```
-
-
-##### With the new control groups given by the above matchit model, I used a t-test for each variable to determine if the control and test means were equal. 
 <table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
  <thead>
   <tr>
-   <th style="text-align:left;"> x </th>
-   <th style="text-align:right;"> t_value </th>
-   <th style="text-align:right;"> p_value </th>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> RMSE.Min. </th>
+   <th style="text-align:right;"> RMSE.1st.Qu. </th>
+   <th style="text-align:right;"> RMSE.Median </th>
+   <th style="text-align:right;"> RMSE.Mean </th>
+   <th style="text-align:right;"> RMSE.3rd.Qu. </th>
+   <th style="text-align:right;"> RMSE.Max. </th>
+   <th style="text-align:right;"> RMSE.NA.s </th>
   </tr>
  </thead>
 <tbody>
   <tr>
-   <td style="text-align:left;"> Sales..s </td>
-   <td style="text-align:right;"> -0.2321010 </td>
-   <td style="text-align:right;"> 0.8179283 </td>
+   <td style="text-align:left;"> lasso2 </td>
+   <td style="text-align:right;"> 731.52 </td>
+   <td style="text-align:right;"> 897.65 </td>
+   <td style="text-align:right;"> 965.50 </td>
+   <td style="text-align:right;"> 986.15 </td>
+   <td style="text-align:right;"> 1061.58 </td>
+   <td style="text-align:right;"> 1225.57 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Gross.Margin..s </td>
-   <td style="text-align:right;"> -0.2239069 </td>
-   <td style="text-align:right;"> 0.8242292 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> S.T.. </td>
-   <td style="text-align:right;"> -0.6015365 </td>
-   <td style="text-align:right;"> 0.5507083 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.HOME.VALUE </td>
-   <td style="text-align:right;"> -0.2798560 </td>
-   <td style="text-align:right;"> 0.7816303 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> MEDIAN.AGE </td>
-   <td style="text-align:right;"> -0.4084223 </td>
-   <td style="text-align:right;"> 0.6854266 </td>
+   <td style="text-align:left;"> rf2 </td>
+   <td style="text-align:right;"> 528.38 </td>
+   <td style="text-align:right;"> 647.83 </td>
+   <td style="text-align:right;"> 764.86 </td>
+   <td style="text-align:right;"> 782.63 </td>
+   <td style="text-align:right;"> 919.65 </td>
+   <td style="text-align:right;"> 1074.78 </td>
+   <td style="text-align:right;"> 0 </td>
   </tr>
 </tbody>
 </table>
 
-##### Based on the results of the two methods used in this markup, I recommended that the company randomly select 20 test groups and make sure that they are a representive sample of the entire population. This would help ensure that there wasn't any bias in the analysis of their results and also allow them to use more stores in the control group for a more robust study.
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> Rsquared.Min. </th>
+   <th style="text-align:right;"> Rsquared.1st.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Median </th>
+   <th style="text-align:right;"> Rsquared.Mean </th>
+   <th style="text-align:right;"> Rsquared.3rd.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Max. </th>
+   <th style="text-align:right;"> Rsquared.NA.s </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> lasso2 </td>
+   <td style="text-align:right;"> 0.63 </td>
+   <td style="text-align:right;"> 0.68 </td>
+   <td style="text-align:right;"> 0.70 </td>
+   <td style="text-align:right;"> 0.70 </td>
+   <td style="text-align:right;"> 0.73 </td>
+   <td style="text-align:right;"> 0.76 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf2 </td>
+   <td style="text-align:right;"> 0.72 </td>
+   <td style="text-align:right;"> 0.81 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 0.87 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>
+ 
+ 
+ 
+##### The results below show how the Lasso vs. Random Forest models performed with the top 9 variables from the RFE analysis versus the previous 4 model above. Based on theses results, the Random Forest model outperformed the Lasso Regression model significantly with a mean R^2 of 82% vs. 71%.The results also point to the fact that a reduction in the number of variables used doesn't have a significant effect in the predictive power of the Random Forest model. We can see that the mean RMSE and mean R^2 values decreasing very slightly from the full set of variables to the variables chosen by the Boruta and RFE algorithms.
+
+
+```r
+##### Use Variables from RFE to build a Models
+Dal_Model_df <- Dallas%>%
+  select(c(Sales,since_jul_snow, Date..Year.,DayOfWeek,Date..Month.,max_temp,gdegree, min_humid,HolidayText,heating_days,max_dew_pt))
+
+Dal_factor_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.factor))]
+Dal_dummies <- dummyVars(~.,Dal_Model_df[Dal_factor_vars])
+Dal_1_hot <- predict(Dal_dummies,Dal_Model_df[Dal_factor_vars])
+
+Dal_numeric_vars <- names(Dal_Model_df)[which(sapply(Dal_Model_df,is.numeric))]
+Dal_num_df <- Dal_Model_df[Dal_numeric_vars]
+Dal_Model_df1 <- cbind(Dal_num_df,Dal_1_hot)
+
+Y <- Dal_Model_df$Sales
+Y_lasso <- Dal_Model_df1$Sales
+drop_sales <- c("Sales") 
+X_train <- Dal_Model_df[,!(names(Dal_Model_df) %in% drop_sales)]
+X_train_lasso <- Dal_Model_df1[,!(names(Dal_Model_df1) %in% drop_sales)]
+
+##### Lasso #####
+set.seed(100)
+CARET.TRAIN.CTRL <- trainControl(method="repeatedcv",
+                                 number=5,
+                                 repeats=5,
+                                 verboseIter=FALSE)
+Dal_lasso_3 <- train(x=X_train_lasso,y=Y_lasso,
+                     method="glmnet",
+                     metric="RMSE",
+                     maximize=FALSE,
+                     trControl=CARET.TRAIN.CTRL,
+                     tuneGrid=expand.grid(alpha=1,lambda=seq(0, 100, by = 0.1)))
+
+##### Random Forest #####
+tg <- data.frame(mtry= seq(1,10, by=2))
+Dal_rf_3 <- train(x=X_train,y=Y,
+                  method="rf",
+                  metric="RMSE",
+                  maximize=FALSE,
+                  importance = TRUE,
+                  trControl=CARET.TRAIN.CTRL,
+                  tuneGrid = tg)
+
+
+model_list5 <- list(lasso1=Dal_lasso_1,lasso2=Dal_lasso_2,lasso3=Dal_lasso_3, 
+                    rf1=Dal_rf_1,rf2=Dal_rf_2,rf3=Dal_rf_3)
+res5<-resamples(model_list5)
+
+res5_table <-as.data.frame(summary(res5)$statistics)
+```
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> RMSE.Min. </th>
+   <th style="text-align:right;"> RMSE.1st.Qu. </th>
+   <th style="text-align:right;"> RMSE.Median </th>
+   <th style="text-align:right;"> RMSE.Mean </th>
+   <th style="text-align:right;"> RMSE.3rd.Qu. </th>
+   <th style="text-align:right;"> RMSE.Max. </th>
+   <th style="text-align:right;"> RMSE.NA.s </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> lasso1 </td>
+   <td style="text-align:right;"> 827.04 </td>
+   <td style="text-align:right;"> 881.64 </td>
+   <td style="text-align:right;"> 930.87 </td>
+   <td style="text-align:right;"> 957.34 </td>
+   <td style="text-align:right;"> 1021.80 </td>
+   <td style="text-align:right;"> 1196.92 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> lasso2 </td>
+   <td style="text-align:right;"> 731.52 </td>
+   <td style="text-align:right;"> 897.65 </td>
+   <td style="text-align:right;"> 965.50 </td>
+   <td style="text-align:right;"> 986.15 </td>
+   <td style="text-align:right;"> 1061.58 </td>
+   <td style="text-align:right;"> 1225.57 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> lasso3 </td>
+   <td style="text-align:right;"> 718.19 </td>
+   <td style="text-align:right;"> 925.72 </td>
+   <td style="text-align:right;"> 1021.49 </td>
+   <td style="text-align:right;"> 1023.59 </td>
+   <td style="text-align:right;"> 1107.34 </td>
+   <td style="text-align:right;"> 1309.14 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf1 </td>
+   <td style="text-align:right;"> 598.58 </td>
+   <td style="text-align:right;"> 661.04 </td>
+   <td style="text-align:right;"> 732.47 </td>
+   <td style="text-align:right;"> 783.25 </td>
+   <td style="text-align:right;"> 834.22 </td>
+   <td style="text-align:right;"> 1195.26 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf2 </td>
+   <td style="text-align:right;"> 528.38 </td>
+   <td style="text-align:right;"> 647.83 </td>
+   <td style="text-align:right;"> 764.86 </td>
+   <td style="text-align:right;"> 782.63 </td>
+   <td style="text-align:right;"> 919.65 </td>
+   <td style="text-align:right;"> 1074.78 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf3 </td>
+   <td style="text-align:right;"> 563.08 </td>
+   <td style="text-align:right;"> 673.85 </td>
+   <td style="text-align:right;"> 796.30 </td>
+   <td style="text-align:right;"> 769.26 </td>
+   <td style="text-align:right;"> 837.02 </td>
+   <td style="text-align:right;"> 1011.40 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>
+
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> Rsquared.Min. </th>
+   <th style="text-align:right;"> Rsquared.1st.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Median </th>
+   <th style="text-align:right;"> Rsquared.Mean </th>
+   <th style="text-align:right;"> Rsquared.3rd.Qu. </th>
+   <th style="text-align:right;"> Rsquared.Max. </th>
+   <th style="text-align:right;"> Rsquared.NA.s </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> lasso1 </td>
+   <td style="text-align:right;"> 0.60 </td>
+   <td style="text-align:right;"> 0.69 </td>
+   <td style="text-align:right;"> 0.73 </td>
+   <td style="text-align:right;"> 0.71 </td>
+   <td style="text-align:right;"> 0.75 </td>
+   <td style="text-align:right;"> 0.77 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> lasso2 </td>
+   <td style="text-align:right;"> 0.63 </td>
+   <td style="text-align:right;"> 0.68 </td>
+   <td style="text-align:right;"> 0.70 </td>
+   <td style="text-align:right;"> 0.70 </td>
+   <td style="text-align:right;"> 0.73 </td>
+   <td style="text-align:right;"> 0.76 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> lasso3 </td>
+   <td style="text-align:right;"> 0.58 </td>
+   <td style="text-align:right;"> 0.65 </td>
+   <td style="text-align:right;"> 0.68 </td>
+   <td style="text-align:right;"> 0.68 </td>
+   <td style="text-align:right;"> 0.71 </td>
+   <td style="text-align:right;"> 0.73 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf1 </td>
+   <td style="text-align:right;"> 0.72 </td>
+   <td style="text-align:right;"> 0.81 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.85 </td>
+   <td style="text-align:right;"> 0.87 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf2 </td>
+   <td style="text-align:right;"> 0.72 </td>
+   <td style="text-align:right;"> 0.81 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.83 </td>
+   <td style="text-align:right;"> 0.87 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> rf3 </td>
+   <td style="text-align:right;"> 0.77 </td>
+   <td style="text-align:right;"> 0.80 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.82 </td>
+   <td style="text-align:right;"> 0.84 </td>
+   <td style="text-align:right;"> 0.88 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>
 
 [Return to my portfolio](https://dustinrogers.github.io/)
+
+
 
